@@ -1,0 +1,84 @@
+**Boda Guy Notification Framework**
+
+**1. Guiding Principles:**
+
+This framework aims to deliver timely, relevant, and clear notifications while respecting the user experience.
+
+* **Relevance:** Notifications must be directly related to the user's actions, account status, active deliveries, or explicitly stated preferences.
+* **Timeliness:** Deliver notifications promptly, especially for time-sensitive events like new delivery requests or rider arrivals. Use real-time channels effectively.
+* **Clarity & Conciseness:** Messages must be easy to understand at a glance. Get straight to the point and provide necessary context.
+* **Actionability:** If a notification requires user action, make it clear what action is needed and provide easy access (e.g., deep-linking into the relevant app screen).
+* **User Control:** Offer granular control over non-essential notification categories and channels via the App Settings. Critical operational and security alerts should generally not be disable-able.
+* **Channel Appropriateness:** Select the most suitable channel (Push, In-App, SMS, Email) based on the urgency, context, and type of information.
+* **Context-Awareness:** Adapt notification delivery based on whether the user has the app open, in the background, or is offline.
+* **Minimize Intrusion:** Avoid notification fatigue. Group related alerts, use frequency capping for non-critical types, and ensure sounds/vibrations match urgency levels.
+* **Consistency:** Maintain a consistent tone of voice, branding, and visual style across all notifications and channels.
+
+**2. Notification Channels:**
+
+Boda Guy will utilize the following channels:
+
+* **Push Notifications (Primary - Real-time):** Via Firebase Cloud Messaging (FCM) [cite: 171] / Apple Push Notification Service (APNS). Used for immediate alerts regarding deliveries, new requests, critical account issues, security, and opt-in marketing.
+* **In-App Notifications / Banners:** Displayed within the app interface when it's open. Used for contextual alerts, less urgent information, confirmations, or persistent critical warnings until acknowledged.
+* **In-App Notification Center (Inbox):** A dedicated screen logging a history of received notifications (as per the IA designed previously). Serves as a central place for users to review past alerts.
+* **SMS (Secondary - High Priority / Fallback):** Used sparingly for critical security alerts (e.g., account recovery codes, suspicious login warnings) or as a fallback if push notifications fail for essential alerts. Crucial for reaching users without consistent data or app usage in the Ugandan context. (*Requires SMS gateway integration and cost management*).
+* **Email (Optional - Asynchronous):** For non-urgent communication: detailed receipts/invoices, weekly/monthly summaries, policy updates, responses to support inquiries, opt-in newsletters/marketing.
+
+**3. Notification Categories, Mapping & Severity:**
+
+(Based on the types defined previously)
+
+| Category                   | Examples                                                                 | Severity | Primary Channel(s)        | Secondary/Fallback | User Control Level |
+| :------------------------- | :----------------------------------------------------------------------- | :------- | :------------------------ | :----------------- | :----------------- |
+| **Delivery Lifecycle** | Request (R), Assigned, Pickup, Arriving, Delivered, Cancelled            | High     | Push, In-App Update       | -                  | Minimal (Essential) |
+| **In-App Messaging** | New Message Received (Customer/Rider)                                    | High     | Push, In-App Badge        | -                  | Minimal (Essential) |
+| **Account & Security** | Suspicious Login, Password Reset, Account Suspension, Fraud Alert        | High     | Push, In-App Banner, SMS  | Email              | None (Critical)    |
+| **Documents (Rider)** | Expiry Warning, Expired/Paused                                           | Medium/High| Push, In-App Banner       | Email              | None (Critical)    |
+| **Payments & Wallet** | Payment Failed (C), Payout Processed (R), Top-up Success (C), Low Balance(C)| Medium   | Push, In-App Center     | Email (Receipts)   | Minimal            |
+| **Safety & SOS** | SOS Confirmation                                                         | High     | Push, SMS                 | -                  | None (Critical)    |
+| **Platform & System** | Critical Outage, Required Update, Policy Change Summary                  | Medium/High| In-App Banner, Push       | Email              | Limited            |
+| **Ratings & Feedback** | Request to Rate Delivery/Rider                                           | Low      | Push (Delayed), In-App Center| -                  | Opt-out Possible   |
+| **Promotions/Incentives**| Offers (C), Earning Boosts (R), New Features, Newsletters                  | Low      | Push, In-App Center       | Email              | Full Opt-in/Opt-out|
+| **Support** | Support Message Reply                                                    | Medium   | Push, In-App Center       | Email              | Minimal            |
+
+*(C) = Client, (R) = Rider*
+
+**4. Rules & Logic:**
+
+* **Prioritization:** Critical notifications (Security, Safety, Paused Account) should visually and audibly stand out. Delivery lifecycle updates are high priority but use standard alerts.
+* **Frequency Capping:** Limit marketing/promotional pushes to avoid annoyance (e.g., max 1-2 per week).
+* **Grouping:** Use OS features to group notifications from Boda Guy (e.g., multiple delivery updates).
+* **In-App Awareness:** Suppress push notifications for events if the user is actively viewing the relevant screen within the app; show an in-app update instead.
+* **Offline Handling:** Queue essential notifications locally or server-side for delivery upon reconnection. Critical alerts might warrant an SMS fallback if push fails after retries.
+* **Deep Linking:** Notifications requiring action should deep-link directly to the relevant screen in the app (e.g., payment failure -> payment methods screen, document expiry -> documents screen).
+* **Sound Profiles:** Define distinct sounds for different severity levels (e.g., urgent alert sound for Critical, standard tone for Informational, unique sound for New Request).
+
+**5. User Controls (Notification Settings):**
+
+* Provide toggles in the Settings screen (as per IA) for users to enable/disable *categories* of non-essential notifications, primarily:
+    * Promotions / Offers / Incentives
+    * Platform News / Tips
+    * (Potentially) Rating Reminders
+* *Do not* allow disabling of critical notifications related to:
+    * Account Security & Safety
+    * Core Delivery Lifecycle Updates
+    * Payment Failures / Payout Issues
+    * Required Document Status (Rider)
+    * Urgent Platform Issues
+* Allow users to manage *channel* preferences where feasible (e.g., choose email over push for summaries, though push is default for real-time).
+
+**6. Technical Architecture Overview:**
+
+* **Events:** Microservices (Orders, Payments, Users, etc.) publish events when notification triggers occur.
+* **Notification Service:** A dedicated backend service listens for these events.
+    * Applies business logic (user preferences, throttling, context).
+    * Formats messages (including localization if needed).
+    * Determines appropriate channel(s).
+    * Interfaces with Push providers (FCM/APNS), SMS Gateway, and potentially Email Service Provider.
+    * Logs notification status (sent, delivered, failed).
+* **Client Apps:**
+    * Register for push notifications.
+    * Handle incoming push payloads (display notification, handle deep links).
+    * Fetch notification history for the Inbox/Center.
+    * Display in-app banners/alerts based on app state and incoming data.
+    * Send user notification preferences to the backend.
